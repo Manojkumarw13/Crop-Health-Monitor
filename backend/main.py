@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from .database import engine, get_db, Base
 from .models import ScanHistory, SoilLog
-from .ml_utils import load_models, predict_crop, analyze_image, calculate_ndvi, chat_with_agronomist
+from .ml_utils import load_models, predict_crop, analyze_image, calculate_ndvi, chat_with_agronomist, predict_pest
 from pydantic import BaseModel
 from PIL import Image
 import io
@@ -130,3 +130,12 @@ class ChatRequest(BaseModel):
 def chat(request: ChatRequest):
     response = chat_with_agronomist(request.message)
     return {"response": response}
+
+class PestRequest(BaseModel):
+    temperature: float
+    humidity: float
+
+@app.post("/predict/pest")
+def pest_predict(request: PestRequest):
+    risk = predict_pest(request.temperature, request.humidity)
+    return {"risk": risk}

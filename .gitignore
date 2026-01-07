@@ -8,3 +8,10 @@ node_modules/
 .DS_Store
 data/Crop_recommendation.csv
 temp_*
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+*.log
