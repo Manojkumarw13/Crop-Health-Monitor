@@ -1,13 +1,14 @@
-from fastapi import FastAPI, Depends, File, UploadFile, HTTPException
+from fastapi import FastAPI, Depends, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from .database import engine, get_db, Base
-from .models import ScanHistory
+from .models import ScanHistory, SoilLog
 from .ml_utils import load_models, predict_crop, analyze_image, calculate_ndvi, chat_with_agronomist
 from pydantic import BaseModel
 from PIL import Image
 import io
 import shutil
+import os
 from fastapi.staticfiles import StaticFiles
 from .weather import get_weather
 from dotenv import load_dotenv
@@ -74,8 +75,19 @@ async def scan_plant(file: UploadFile = File(...), db: Session = Depends(get_db)
         "scan_id": scan.id
     }
 
+@app.get("/history")
+def get_scan_history(db: Session = Depends(get_db)):
+    history = db.query(ScanHistory).order_by(ScanHistory.timestamp.desc()).limit(50).all()
+    return history
+
+def remove_file(path: str):
+    try:
+        os.remove(path)
+    except Exception:
+        pass
+
 @app.post("/scan/ndvi")
-async def scan_ndvi(file: UploadFile = File(...)):
+async def scan_ndvi(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     # Save temp file for OpenCV
     temp_path = f"temp_{file.filename}"
     with open(temp_path, "wb") as buffer:
@@ -83,7 +95,33 @@ async def scan_ndvi(file: UploadFile = File(...)):
         
     ndvi_path = calculate_ndvi(temp_path)
     
+    # Clean up temp file after response
+    background_tasks.add_task(remove_file, temp_path)
+    
     return {"ndvi_image": f"/static/{ndvi_path}"} # Return URL path
+
+class SoilLogCreate(BaseModel):
+    n: float
+    p: float
+    k: float
+    ph: float
+
+@app.post("/soil-logs")
+def create_soil_log(log: SoilLogCreate, db: Session = Depends(get_db)):
+    new_log = SoilLog(
+        nitrogen=log.n,
+        phosphorus=log.p,
+        potassium=log.k,
+        ph=log.ph
+    )
+    db.add(new_log)
+    db.commit()
+    db.refresh(new_log)
+    return new_log
+
+@app.get("/soil-logs")
+def get_soil_logs(db: Session = Depends(get_db)):
+    return db.query(SoilLog).order_by(SoilLog.timestamp.desc()).limit(20).all()
 
 class ChatRequest(BaseModel):
     message: str
