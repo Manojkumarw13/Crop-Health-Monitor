@@ -7,11 +7,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Get DB URL from .env, or fallback to default for safety
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost/crop_monitor")
+# SQLite Database URL
+SQLALCHEMY_DATABASE_URL = "sqlite:///./crop_monitor.db"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
