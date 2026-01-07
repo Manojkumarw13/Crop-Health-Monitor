@@ -8,6 +8,11 @@ from pydantic import BaseModel
 from PIL import Image
 import io
 import shutil
+from fastapi.staticfiles import StaticFiles
+from .weather import get_weather
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Initialize DB
 Base.metadata.create_all(bind=engine)
@@ -23,6 +28,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files directory to serve images
+app.mount("/static", StaticFiles(directory="."), name="static")
+
 @app.on_event("startup")
 def startup_event():
     load_models()
@@ -30,6 +38,10 @@ def startup_event():
 @app.get("/")
 def read_root():
     return {"status": "AI System Operational"}
+
+@app.get("/weather")
+def read_weather(lat: float, lon: float):
+    return get_weather(lat, lon)
 
 @app.post("/recommend")
 def recommend(n: float, p: float, k: float, temp: float, hum: float, ph: float, rain: float):
@@ -71,7 +83,7 @@ async def scan_ndvi(file: UploadFile = File(...)):
         
     ndvi_path = calculate_ndvi(temp_path)
     
-    return {"ndvi_image": ndvi_path} # In real app, serve this file via StaticFiles
+    return {"ndvi_image": f"/static/{ndvi_path}"} # Return URL path
 
 class ChatRequest(BaseModel):
     message: str

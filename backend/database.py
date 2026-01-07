@@ -2,8 +2,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Default to localhost postgres. User might need to change this.
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:postgres@localhost/crop_monitor"
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Get DB URL from .env, or fallback to default for safety
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost/crop_monitor")
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL
