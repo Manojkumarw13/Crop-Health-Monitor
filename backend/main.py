@@ -13,7 +13,11 @@ from fastapi.staticfiles import StaticFiles
 from .weather import get_weather
 from dotenv import load_dotenv
 
+
+from dotenv import load_dotenv
+
 load_dotenv()
+
 
 # Initialize DB
 Base.metadata.create_all(bind=engine)

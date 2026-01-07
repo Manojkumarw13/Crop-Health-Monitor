@@ -14,7 +14,11 @@ def load_models():
     global crop_model, disease_pipeline
     
     # 1. Train/Load Crop Recommendation Model
-    data_path = "../data/Crop_recommendation.csv"
+    # 1. Train/Load Crop Recommendation Model
+    # Use absolute path relative to this file to match data folder
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_path = os.path.join(base_dir, "..", "data", "Crop_recommendation.csv")
+    
     if os.path.exists(data_path):
         print("Training Crop Model...")
         df = pd.read_csv(data_path)
@@ -37,15 +41,8 @@ def load_models():
     except Exception as e:
         print(f"Failed to load disease model: {e}")
 
-    # 3. Load Chat Model (TinyLlama)
-    print("Loading Chat Model (TinyLlama)...")
-    try:
-        # device=0 for GPU. 
-        # chat_pipeline = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", max_new_tokens=200)
-        chat_pipeline = None # Skip for verification speed
-        print("Chat Model Loaded!")
-    except Exception as e:
-        print(f"Failed to load chat model: {e}")
+    # 3. Chat Model is now handled via OpenRouter API (No local load needed)
+    print("Chat System Initialized (Using OpenRouter)")
 
 def predict_crop(n, p, k, temp, hum, ph, rain):
     if not crop_model:
@@ -97,14 +94,44 @@ def calculate_ndvi(image_path):
     return output_path
 
 def chat_with_agronomist(prompt):
-    if not chat_pipeline:
-        return "Chat model is loading or failed to load. Please try again later."
+    import requests
+    import json
     
-    system_prompt = "You are an expert Agronomist AI. Answer the farmer's question concisely."
-    full_prompt = f"<|system|>\n{system_prompt}</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        return "Error: OPENROUTER_API_KEY not found in environment variables."
+
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        #"HTTP-Referer": "http://localhost:5173", # Optional
+    }
     
-    response = chat_pipeline(full_prompt)
-    return response[0]['generated_text'].split("<|assistant|>\n")[-1]
+    system_prompt = (
+        "You are an expert Agronomist AI named 'AgriBot'. "
+        "You verify crop health, suggest farming techniques, and diagnose pest/disease issues. "
+        "Your answers should be concise, practical, and easy for a farmer to understand. "
+        "If asked about something non-agricultural, politely redirect to farming topics."
+    )
+    
+    data = {
+        "model": "mistralai/mistral-7b-instruct:free", # Or any other model user prefers
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ]
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        if response.status_code == 200:
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        else:
+            return f"Error from AI Provider: {response.text}"
+    except Exception as e:
+        return f"Connection Error: {str(e)}"
 
 def predict_pest(temp, humidity):
     """
