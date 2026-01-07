@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+scikit-learn
+pandas
+transformers
+torch --index-url https://download.pytorch.org/whl/cu118
+python-multipart
+pillow
+opencv-python

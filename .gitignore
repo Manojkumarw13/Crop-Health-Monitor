@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+venv/
+node_modules/
+.DS_Store
+data/Crop_recommendation.csv
+temp_*
