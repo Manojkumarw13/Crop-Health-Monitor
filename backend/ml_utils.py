@@ -1,21 +1,30 @@
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import train_test_split
 from transformers import pipeline
 import os
-import joblib
+import cv2
+import numpy as np
+import tempfile
+from PIL import Image
+
+# Import new Engine modules
+try:
+    from .analysis import AnalysisEngine
+    from .preprocessing import preprocess_image, create_vegetation_mask
+    from .features import extract_features
+except ImportError:
+    # Fallback/Dev mode if imports fail (e.g. running script directly)
+    pass
 
 # Global Models
 crop_model = None
 disease_pipeline = None
-chat_pipeline = None
+analysis_engine = None
 
 def load_models():
-    global crop_model, disease_pipeline
+    global crop_model, disease_pipeline, analysis_engine
     
     # 1. Train/Load Crop Recommendation Model
-    # 1. Train/Load Crop Recommendation Model
-    # Use absolute path relative to this file to match data folder
     base_dir = os.path.dirname(os.path.abspath(__file__))
     data_path = os.path.join(base_dir, "..", "data", "Crop_recommendation.csv")
     
@@ -31,18 +40,23 @@ def load_models():
     else:
         print("Warning: Crop dataset not found. Model not trained.")
 
-    # 2. Load Hugging Face Pipeline
-    # Using a known plant disease model
-    print("Loading Disease Model (This may take data)...")
+    # 2. Load Hugging Face Pipeline (Disease)
+    print("Loading Disease Model...")
     try:
-        # device=0 for GPU usage if available
-        disease_pipeline = pipeline("image-classification", model="linkanjarad/mobilenet_v2_1.0_224-plant-disease-identification") # Remove device=0 if issues
+        disease_pipeline = pipeline("image-classification", model="linkanjarad/mobilenet_v2_1.0_224-plant-disease-identification")
         print("Disease Model Loaded!")
     except Exception as e:
         print(f"Failed to load disease model: {e}")
 
-    # 3. Chat Model is now handled via OpenRouter API (No local load needed)
-    print("Chat System Initialized (Using OpenRouter)")
+    # 3. Load Analysis Engine
+    print("Loading Analysis Engine (ResNet + Heuristics)...")
+    try:
+        analysis_engine = AnalysisEngine()
+        print("Analysis Engine Loaded!")
+    except Exception as e:
+        print(f"Failed to load Analysis Engine: {e}")
+
+    print("AI Components Initialized")
 
 def predict_crop(n, p, k, temp, hum, ph, rain):
     if not crop_model:
@@ -50,10 +64,67 @@ def predict_crop(n, p, k, temp, hum, ph, rain):
     prediction = crop_model.predict([[n, p, k, temp, hum, ph, rain]])
     return prediction[0]
 
-def analyze_image(image):
-    if not disease_pipeline:
-        return [{"label": "Model Error", "score": 0.0}]
-    results = disease_pipeline(image)
+def analyze_image(image: Image.Image):
+    """
+    Comprehensive Image Analysis:
+    1. Disease Detection (HF Model)
+    2. Crop Health (Heuristics)
+    3. Soil Condition (CV)
+    4. Pest Risk (Hybrid)
+    """
+    results = {}
+    
+    # 1. Disease Detection (Existing)
+    if disease_pipeline:
+        try:
+            hf_results = disease_pipeline(image)
+            results['disease_prediction'] = hf_results
+            results['top_disease'] = hf_results[0]['label']
+            results['disease_confidence'] = hf_results[0]['score']
+        except Exception as e:
+            results['disease_error'] = str(e)
+            results['top_disease'] = "Error"
+            results['disease_confidence'] = 0.0
+    
+    # 2. Advanced Analysis (New Engine)
+    if analysis_engine:
+        try:
+            # Save to temp file for CV2 processing (Engine expects path)
+            # Fix for Windows: Use mkstemp or close NamedTemporaryFile before reopening
+            fd, temp_path = tempfile.mkstemp(suffix=".jpg")
+            os.close(fd) # Close the file descriptor so it can be opened by other processes/libs
+            
+            try:
+                image.save(temp_path)
+            
+                # Pipeline
+                img_analysis, img_ml = preprocess_image(temp_path)
+                
+                if img_analysis is not None:
+                    mask, _ = create_vegetation_mask(img_analysis)
+                    features = extract_features(img_analysis, mask)
+                    engine_results = analysis_engine.analyze(img_analysis, img_ml, features, mask)
+                    
+                    results.update(engine_results) # Merge dictionaries
+                    results['features'] = features
+            finally:
+                # Cleanup
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass
+                
+        except Exception as e:
+            print(f"Engine Analysis Failed: {e}")
+            results['engine_error'] = str(e)
+    
+    # Ensure baseline keys exist if engine failed
+    if 'crop_health' not in results:
+        results['crop_health'] = "Unknown"
+        results['soil_condition'] = "Unknown"
+        results['pest_risk'] = "Low"
+
     return results
 
 def calculate_ndvi(image_path):
@@ -95,7 +166,6 @@ def calculate_ndvi(image_path):
 
 def chat_with_agronomist(prompt):
     import requests
-    import json
     
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
@@ -105,7 +175,6 @@ def chat_with_agronomist(prompt):
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        #"HTTP-Referer": "http://localhost:5173", # Optional
     }
     
     system_prompt = (
@@ -116,7 +185,7 @@ def chat_with_agronomist(prompt):
     )
     
     data = {
-        "model": "mistralai/mistral-7b-instruct:free", # Or any other model user prefers
+        "model": "mistralai/mistral-7b-instruct:free",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
@@ -135,7 +204,7 @@ def chat_with_agronomist(prompt):
 
 def predict_pest(temp, humidity):
     """
-    Simple rule-based pest prediction
+    Simple rule-based pest prediction (Fallback if engine fails or for quick check)
     """
     if temp > 30 and humidity > 70:
         return "High Risk: Aphids, Fungal Diseases"
