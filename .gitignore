@@ -15,3 +15,5 @@ temp_*
 
 # Logs
 *.log
+
+data/PlantDoc/

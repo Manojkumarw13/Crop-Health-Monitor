@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   --bg-dark: #050b14;
   --bg-card: rgba(16, 28, 20, 0.6); /* Greenish tint glass */
@@ -90,7 +92,14 @@ textarea:focus {
   border-color: var(--primary);
 }
 
-/* Scrollbar */
+/* Scrollbar (Cross-browser) */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 var(--bg-dark);
+}
+
+/* Chrome, Edge, and Safari */
 ::-webkit-scrollbar {
   width: 8px;
 }

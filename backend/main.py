@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from .database import engine, get_db, Base
 from .models import ScanHistory, SoilLog
-from .ml_utils import load_models, predict_crop, analyze_image, calculate_ndvi, chat_with_agronomist, predict_pest
+from .ml_utils import load_models, analyze_image, calculate_ndvi, chat_with_agronomist, predict_pest, assess_soil_health
 from pydantic import BaseModel
 from PIL import Image
 import io
@@ -52,9 +52,11 @@ def read_weather(lat: float, lon: float):
     return get_weather(lat, lon)
 
 @app.post("/recommend")
-def recommend(n: float, p: float, k: float, temp: float, hum: float, ph: float, rain: float):
-    prediction = predict_crop(n, p, k, temp, hum, ph, rain)
-    return {"recommended_crop": prediction}
+@app.post("/recommend")
+def recommend_soil_health(n: float, p: float, k: float, temp: float, hum: float, ph: float, rain: float):
+    # Soil Health Analysis
+    result = assess_soil_health(n, p, k, temp, hum, ph, rain)
+    return result
 
 @app.post("/scan")
 async def scan_plant(file: UploadFile = File(...), db: Session = Depends(get_db)):

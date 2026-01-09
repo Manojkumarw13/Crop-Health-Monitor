@@ -7,7 +7,7 @@ const Recommend = () => {
         n: 90, p: 40, k: 40, temp: 25, hum: 80, ph: 7, rain: 200
     });
     const [loading, setLoading] = useState(false);
-    const [prediction, setPrediction] = useState(null);
+    const [result, setResult] = useState(null);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: parseFloat(e.target.value) });
@@ -18,7 +18,7 @@ const Recommend = () => {
         setLoading(true);
         try {
             const data = await getRecommendation(formData);
-            setPrediction(data.recommended_crop);
+            setResult(data);
         } catch (error) {
             console.error(error);
         } finally {
@@ -28,12 +28,12 @@ const Recommend = () => {
 
     return (
         <div className="page-container">
-            <h1 style={{ textAlign: 'center', marginBottom: '2rem' }}>Crop Recommendation</h1>
+            <h1 style={{ textAlign: 'center', marginBottom: '2rem' }}>Soil Health Monitor</h1>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '4rem' }}>
                 <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div style={{ gridColumn: '1 / -1', marginBottom: '1rem' }}>
-                        <h3 style={{ margin: 0 }}>Soil & Climatic Conditions</h3>
+                        <h3 style={{ margin: 0 }}>Soil & Climatic Input</h3>
                     </div>
 
                     <FormInput label="Nitrogen (N)" name="n" value={formData.n} onChange={handleChange} />
@@ -47,27 +47,44 @@ const Recommend = () => {
 
                     <div style={{ gridColumn: '1 / -1', marginTop: '1rem' }}>
                         <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={loading}>
-                            {loading ? 'Analyzing...' : 'Get Recommendation'}
+                            {loading ? 'Analyzing...' : 'Check Soil Health'}
                         </button>
                     </div>
                 </form>
 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    {prediction ? (
-                        <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', width: '100%', borderColor: 'var(--primary)' }}>
-                            <FaSeedling size={64} color="var(--primary)" style={{ marginBottom: '1rem' }} />
-                            <h3>Best Crop to Plant</h3>
-                            <div style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--primary)', textTransform: 'capitalize' }}>
-                                {prediction}
+                    {result ? (
+                        <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', width: '100%', borderColor: result.grade.includes('Good') ? '#10b981' : result.grade.includes('Average') ? '#f59e0b' : '#ef4444' }}>
+                            <FaSeedling size={64} color={result.grade.includes('Good') ? '#10b981' : result.grade.includes('Average') ? '#f59e0b' : '#ef4444'} style={{ marginBottom: '1rem' }} />
+                            <h3>Soil Grade</h3>
+                            <div style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--text-main)', textTransform: 'capitalize' }}>
+                                {result.grade}
                             </div>
-                            <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>
-                                Based on your soil composition and weather conditions, {prediction} will yield the best results.
-                            </p>
+                            <div style={{ fontSize: '1.5rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>
+                                Score: {result.total_score} / {result.max_score}
+                            </div>
+                            
+                            <div style={{ marginTop: '2rem', width: '100%', textAlign: 'left' }}>
+                                <h4>Parameter Breakdown</h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem' }}>
+                                    {Object.entries(result.details).map(([key, status]) => (
+                                        <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>
+                                            <span style={{ textTransform: 'capitalize' }}>{key}</span>
+                                            <span style={{ 
+                                                fontWeight: 'bold', 
+                                                color: status === 'Good' ? '#10b981' : status === 'Average' ? '#f59e0b' : '#ef4444' 
+                                            }}>
+                                                {status}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div style={{ opacity: 0.5, textAlign: 'center' }}>
                             <FaSeedling size={100} />
-                            <p>Enter data to reveal the magic crop</p>
+                            <p>Enter soil parameters to assess health</p>
                         </div>
                     )}
                 </div>
