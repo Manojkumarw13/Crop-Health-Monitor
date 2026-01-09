@@ -1,6 +1,5 @@
 # 🌾 AI Crop Health Monitoring System
 
-![Project Banner](https://images.unsplash.com/photo-1625246333195-bf73868c2C8b?q=80&w=1920&auto=format&fit=crop)
 
 > **Empowering Farmers with AI-Driven Insights for Sustainable Agriculture.**
 
