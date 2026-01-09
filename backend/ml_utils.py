@@ -122,7 +122,6 @@ def analyze_image(image: Image.Image):
     # Ensure baseline keys exist if engine failed
     if 'crop_health' not in results:
         results['crop_health'] = "Unknown"
-        results['soil_condition'] = "Unknown"
         results['pest_risk'] = "Low"
 
     return results

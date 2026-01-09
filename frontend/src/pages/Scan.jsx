@@ -72,9 +72,33 @@ const Scan = () => {
                                 <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
                                     Prediction: <strong>{result.disease}</strong>
                                 </div>
-                                <div style={{ color: 'var(--text-muted)' }}>
+                                <div style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
                                     Confidence: {(result.confidence * 100).toFixed(1)}%
                                 </div>
+
+                                {/* Advanced Engine Features */}
+                                {result.analysis && (
+                                    <div style={{ 
+                                        display: 'grid', 
+                                        gridTemplateColumns: 'repeat(3, 1fr)', 
+                                        gap: '1rem', 
+                                        marginTop: '2rem', 
+                                        paddingTop: '2rem', 
+                                        borderTop: '1px solid var(--glass-border)' 
+                                    }}>
+                                        <FeatureStat 
+                                            label="Crop Health" 
+                                            value={result.analysis.crop_health} 
+                                            color={result.analysis.crop_health === 'Good' ? '#10b981' : '#f59e0b'}
+                                        />
+                                        <FeatureStat 
+                                            label="Pest Risk" 
+                                            value={result.analysis.pest_risk}
+                                            color={result.analysis.pest_risk === 'Low' ? '#10b981' : '#ef4444'}
+                                        />
+                                    </div>
+                                )}
+
                                 <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#94a3b8' }}>
                                     Scan ID: {result.scan_id}
                                 </div>
@@ -98,5 +122,12 @@ const Scan = () => {
         </div>
     );
 };
+
+const FeatureStat = ({ label, value, color }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</span>
+        <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: color || 'var(--text-main)' }}>{value || 'Unknown'}</span>
+    </div>
+);
 
 export default Scan;

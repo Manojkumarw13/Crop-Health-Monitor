@@ -36,8 +36,11 @@ app.add_middleware(
 # Mount static files directory to serve images
 app.mount("/static", StaticFiles(directory="."), name="static")
 
+from .download_data import ensure_data_exists
+
 @app.on_event("startup")
 def startup_event():
+    ensure_data_exists()
     load_models()
 
 @app.get("/")
@@ -59,10 +62,12 @@ async def scan_plant(file: UploadFile = File(...), db: Session = Depends(get_db)
     contents = await file.read()
     image = Image.open(io.BytesIO(contents)).convert("RGB")
     
-    # 1. Disease Detection
+    # 1. Disease Detection & Full Analysis
     ml_result = analyze_image(image)
-    top_disease = ml_result[0]['label']
-    confidence = ml_result[0]['score']
+    
+    # Extract backward-compatible fields
+    top_disease = ml_result.get('top_disease', 'Unknown')
+    confidence = ml_result.get('disease_confidence', 0.0)
 
     # 2. Save to DB (Postgres)
     scan = ScanHistory(
@@ -76,7 +81,8 @@ async def scan_plant(file: UploadFile = File(...), db: Session = Depends(get_db)
     return {
         "disease": top_disease,
         "confidence": confidence,
-        "scan_id": scan.id
+        "scan_id": scan.id,
+        "analysis": ml_result # Return full rich analysis
     }
 
 @app.get("/history")
